@@ -1,0 +1,78 @@
+#include <Wire.h>
+#include "MAX30105.h"
+#include "spo2_algorithm.h"
+
+MAX30105 particleSensor;
+
+#define MAX_BRIGHTNESS 255
+
+#if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
+
+uint16_t irBuffer[100]; // Infrared LED sensor data
+uint16_t redBuffer[100]; // Red LED sensor data
+#else
+uint32_t irBuffer[100]; // Infrared LED sensor data
+uint32_t redBuffer[100]; // Red LED sensor data
+#endif
+
+int32_t bufferLength; 
+
+byte pulseLED = 11;
+byte readLED = 13; 
+
+void setup()
+{
+  Serial.begin(115200); // Initialize serial communication at 115200 bits per second
+
+  pinMode(pulseLED, OUTPUT);
+  pinMode(readLED, OUTPUT);
+
+  // Initialize sensor
+  if (!particleSensor.begin(Wire, I2C_SPEED_FAST)) 
+  {
+    Serial.println(F("MAX30102  not found. Please check wiring/power."));
+    while (1);
+  }
+
+  byte ledBrightness = 60; 
+  byte sampleAverage = 4; 
+  byte ledMode = 2; 
+  byte sampleRate = 100; 
+  int pulseWidth = 411; 
+  int adcRange = 4096; 
+
+  particleSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange); 
+}
+
+void loop()
+{
+  unsigned long startTime = millis(); // Get the current time
+  unsigned long durationSeconds = 300; // 5 minutes
+
+  while (millis() - startTime < durationSeconds * 1000) // Run for approximately 5 minutes
+  {
+    bufferLength = 100; 
+
+    
+    for (byte i = 0; i < bufferLength; i++)
+    {
+      while (particleSensor.available() == false) // is there new data?
+        particleSensor.check(); // Check the sensor for new data
+
+      redBuffer[i] = particleSensor.getRed();
+      irBuffer[i] = particleSensor.getIR();
+      particleSensor.nextSample(); 
+
+      Serial.print(F("    "));
+      Serial.print(redBuffer[i], DEC);
+      Serial.print(F("         ")); 
+      Serial.print(F("     "));
+      Serial.println(irBuffer[i], DEC);
+
+    }
+          delay(1000); // Delay for 1 second before taking the next set of readings
+  }
+
+  // Code execution continues here after the loop when the specified duration is reached
+  Serial.println("Code execution for 5 minutes completed.");
+}
